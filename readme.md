@@ -4,6 +4,8 @@ This module is intended to lock promises, forcing some code block to be executed
 
 The module has been written without using arrays using a linked function chain.
 
+You can use same lock multiple times to lock different code blocks. 
+
 It allows 2 semantics:
 * Passing an async callback to the lock method
 ```js
