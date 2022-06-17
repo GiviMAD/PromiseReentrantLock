@@ -1,7 +1,7 @@
 {
   "name": "reentrant-lock",
-  "version": "2.0.0",
-  "description": "Lock a block of code to prevent concurrent execution",
+  "version": "2.0.1",
+  "description": "Lock blocks of code to prevent concurrent execution",
   "keywords": [
     "promise-lock",
     "promise",
