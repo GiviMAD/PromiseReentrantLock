@@ -1,6 +1,6 @@
 {
   "name": "reentrant-lock",
-  "version": "2.0.1",
+  "version": "3.0.0",
   "description": "Lock blocks of code to prevent concurrent execution",
   "keywords": [
     "promise-lock",
@@ -27,10 +27,10 @@
   "author": "Miguel Álvarez Díez",
   "license": "MIT",
   "devDependencies": {
-    "@types/tape": "^4.13.2",
-    "c8": "^7.11.3",
-    "tape": "^5.5.3",
-    "ts-node": "^10.8.1",
-    "typescript": "^4.7.3"
+    "@types/tape": "^5.6.1",
+    "c8": "^8.0.1",
+    "tape": "^5.6.6",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
   }
 }

@@ -1,36 +1,42 @@
-
-type ReentrantLockReleaser = () => void;
-interface ReentrantLockedChainItem {
+interface UnlockFn { (): void; }
+interface LockLinkedFn {
     (): void;
-    next?: ReentrantLockedChainItem;
+    next?: LockLinkedFn;
 }
 export class ReentrantLock {
-    private current?: ReentrantLockedChainItem;
-    private last?: ReentrantLockedChainItem;
-    private next = () => {
+    private current?: LockLinkedFn;
+    private last?: LockLinkedFn;
+    private readonly chainNoop: LockLinkedFn = () => void (0);
+    private readonly chainNext: UnlockFn = () => {
         if (this.current === this.last) {
-            this.current = undefined;
-            this.last = undefined;
-        } else if (this.current && this.current.next) {
-            this.current.next();
-        }
-    };
-    acquire(): Promise<ReentrantLockReleaser> {
-        if (!this.last) {
-            /* c8 ignore next */
-            this.current = this.last = () => null;
-            return Promise.resolve(this.next);
+            this.current = this.last = undefined;
         } else {
-            return new Promise((resolve, reject) => {
-                const lockChainItem = () => {
-                    this.current = lockChainItem;
-                    resolve(this.next);
+            ((this.current as LockLinkedFn).next as LockLinkedFn)();
+        }
+    }
+    public acquire(): Promise<UnlockFn> {
+        if (!this.last) {
+            let noop: LockLinkedFn | undefined = this.current = this.last = this.chainNoop;
+            return Promise.resolve(() => {
+                if (noop) {
+                    noop = undefined;
+                    this.chainNext();
+                }
+            });
+        } else {
+            return new Promise((resolve: (unlockFn: UnlockFn) => void) => {
+                let lockChainFn: LockLinkedFn | undefined = () => {
+                    if (lockChainFn) {
+                        this.current = lockChainFn;
+                        lockChainFn = undefined;
+                        resolve(this.chainNext);
+                    }
                 };
-                this.last = (this.last as ReentrantLockedChainItem).next = lockChainItem;
+                this.last = (this.last as LockLinkedFn).next = lockChainFn;
             });
         }
     }
-    lock<T>(op: () => Promise<T>) {
-        return this.acquire().then(releaser => op().finally(releaser));
+    public lock<T>(op: () => Promise<T>) {
+        return this.acquire().then(unlock => op().finally(unlock));
     }
 }

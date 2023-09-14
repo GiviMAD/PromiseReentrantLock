@@ -1,33 +1,117 @@
 # ReentrantLock
-## Lock mechanism for promises, using a linked list like implementation.
-This module is intended to lock promises, forcing some code block to be executed complete before while other contexts wait for the lock to be released. 
 
-The module has been written without using arrays using a linked function chain.
+### Lightweight lock mechanism for promises, using a linked list implementation.
 
-You can use same lock multiple times to lock different code blocks. 
+Lightweight, dependency free, promise lock mechanism.
 
-It allows 2 semantics:
-* Passing an async callback to the lock method
+It's implemented without relying on arrays using a linked function chain.
+
+The implementation can be reviewed in a moment, it is under 50 lines.
+
+## Examples:
+
+The library can be used to avoid concurrent execution of an async block that contains await calls.
+
+For example a token refresh http request than can be invoked from different promises.
+The next example summarized how to reduce the possible overload caused by that common situation:
+
 ```js
-const promiseLock = new ReentrantLock();
+
+const refreshLocker = new ReentrantLock();
+
+let accessToken = "..."
+let refreshToken = "..."
+
+function isTokenExpired() {
+    ... // return bool
+}
+
+async function refreshToken() {
+    // We lock the refresh block execution
+    await refreshLocker.lock(async ()=>{
+        // By checking the state again after the lock was released we know the previous consumer has already refreshed the token 
+        if(!isTokenExpired()) {
+            // So we can abort the execution avoiding an unnecessary server call
+            return;
+        }
+        let newCredentials = await fetch(...);
+        ...
+    });   
+}
+
+export async function myApiCall1() {
+    if(isTokenExpired()) {
+        await refreshToken();
+    }
+    ... // consume the api with a valid token
+}
+
+
+export async function myApiCall2() {
+    if(isTokenExpired()) {
+        await refreshToken();
+    }
+    ... // consume the api with a valid token
+}
+
+...
+    // Somewhere in the code
+    await Promise.all([myApiCall1(), myApiCall2()]);
+...
+```
+
+Also can be used to chain async executions that are not awaited and need to be non concurrent.
+For example to display messages in an UI one after another like in the next basic example:
+
+```js
+const tooltipLocker = new ReentrantLock();
+function displayTextForAWhile(text) {
+    const paragraph = document.createElement("p");
+    paragraph.textContent = text;
+    tooltipLocker.lock((unlock) => {
+        document.body.appendChild(elemDiv);
+        setTimeout(() => {
+            paragraph.remove();
+            unlock();
+        }, 2000);
+    })
+        .then(() => console.debug(`Text '${text}' displayed at ${new Date().getTime()}`))
+        .catch((err) => ...);
+}
+displayTextForAWhile("One tip");
+displayTextForAWhile("Other tip");
+displayTextForAWhile("Another one");
+```
+
+# Semantic
+
+The library allows two semantics:
+
+Passing an async callback to the lock method:
+
+```js
+const promiseLocker = new ReentrantLock();
 async function () {
     ...
-    await promiseLock.lock(async ()=>{
+    await promiseLocker.lock(async ()=>{
         // your code block
     });   
     ...
 }
 ```
-* Adquire the lock (you need to release it always)
+
+Acquire and release the lock:
+
 ```js
-const promiseLock = new ReentrantLock();
+const promiseLocker = new ReentrantLock();
 async function () {
     ...
-    const releaseLockFn = await promiseLock.acquire();
+    const unlockFn = await promiseLocker.acquire();
     try{
         // your code block
     } finally {
-        releaseLockFn();
+        // unlock next consumer
+        unlockFn();
     }
     ...
 }

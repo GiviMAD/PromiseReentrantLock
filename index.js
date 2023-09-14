@@ -3,34 +3,41 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReentrantLock = void 0;
 class ReentrantLock {
     constructor() {
-        this.next = () => {
+        this.chainNoop = () => void (0);
+        this.chainNext = () => {
             if (this.current === this.last) {
-                this.current = undefined;
-                this.last = undefined;
+                this.current = this.last = undefined;
             }
-            else if (this.current && this.current.next) {
+            else {
                 this.current.next();
             }
         };
     }
     acquire() {
         if (!this.last) {
-            /* c8 ignore next */
-            this.current = this.last = () => null;
-            return Promise.resolve(this.next);
+            let noop = this.current = this.last = this.chainNoop;
+            return Promise.resolve(() => {
+                if (noop) {
+                    noop = undefined;
+                    this.chainNext();
+                }
+            });
         }
         else {
-            return new Promise((resolve, reject) => {
-                const lockChainItem = () => {
-                    this.current = lockChainItem;
-                    resolve(this.next);
+            return new Promise((resolve) => {
+                let lockChainFn = () => {
+                    if (lockChainFn) {
+                        this.current = lockChainFn;
+                        lockChainFn = undefined;
+                        resolve(this.chainNext);
+                    }
                 };
-                this.last = this.last.next = lockChainItem;
+                this.last = this.last.next = lockChainFn;
             });
         }
     }
     lock(op) {
-        return this.acquire().then(releaser => op().finally(releaser));
+        return this.acquire().then(unlock => op().finally(unlock));
     }
 }
 exports.ReentrantLock = ReentrantLock;
